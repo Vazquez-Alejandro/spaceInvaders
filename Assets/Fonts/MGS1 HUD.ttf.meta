@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: 68cb69f07b8c463a87fa68c0695b6477
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: MGS1 HUD
+  fontNames: []
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 1
+  shouldRoundAdvanceValue: 1
+  textureType: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  useLegacyOversampleCalculation: 0
+  secondaryTextures: []

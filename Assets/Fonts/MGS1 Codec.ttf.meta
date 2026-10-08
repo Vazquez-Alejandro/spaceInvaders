@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: 2766caa75ba84299a4088360086346df
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: MGS1 Codec
+  fontNames: []
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 1
+  shouldRoundAdvanceValue: 1
+  textureType: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  useLegacyOversampleCalculation: 0
+  secondaryTextures: []
