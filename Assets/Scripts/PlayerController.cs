@@ -13,8 +13,8 @@ public class PlayerController : MonoBehaviour
     public Transform puntoDisparo;
 
     [Header("Atributos")]
-    public int vida = 100;
-    public int vidaMaxima = 100;
+    public int vida = 5;
+    public int vidaMaxima = 5;
     public int monedas = 0;
 
     [Header("Sonido de daño")]
@@ -24,11 +24,15 @@ public class PlayerController : MonoBehaviour
     private Rigidbody2D rb;
     private AudioSource audioDisparo;
     private Vector2 movimiento;
+    private Camera camara;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         audioDisparo = GetComponent<AudioSource>();
+        camara = Camera.main;
+        vidaMaxima = Mathf.Max(1, vidaMaxima);
+        vida = Mathf.Clamp(vida, 0, vidaMaxima);
     }
 
     void Update()
@@ -76,7 +80,20 @@ public class PlayerController : MonoBehaviour
             velocidadActual *= velocidadSprint;
         }
 
-        rb.MovePosition(rb.position + movimiento * velocidadActual * Time.fixedDeltaTime);
+        Vector2 destino = rb.position + movimiento * velocidadActual * Time.fixedDeltaTime;
+
+        if (camara != null)
+        {
+            float mitadAlto = camara.orthographicSize;
+            float mitadAncho = mitadAlto * camara.aspect;
+            const float margen = 0.5f;
+            Vector3 centro = camara.transform.position;
+
+            destino.x = Mathf.Clamp(destino.x, centro.x - mitadAncho + margen, centro.x + mitadAncho - margen);
+            destino.y = Mathf.Clamp(destino.y, centro.y - mitadAlto + margen, centro.y + mitadAlto - margen);
+        }
+
+        rb.MovePosition(destino);
     }
 
     // Función para instanciar la bala
@@ -109,7 +126,7 @@ public class PlayerController : MonoBehaviour
         if (collision.gameObject.name.StartsWith("EnemyLaser") &&
             collision.GetComponent<SpriteRenderer>() != null)
         {
-            AplicarDano(10);
+            AplicarDano(1);
             Destroy(collision.gameObject);
         }
     }
@@ -118,6 +135,7 @@ public class PlayerController : MonoBehaviour
     private void AplicarDano(int cantidad)
     {
         vida = Mathf.Max(0, vida - cantidad);
+        BarraVida.RefrescarBarra();
 
         if (sonidoRecibirDano != null && ControlEfectos.Activados)
         {

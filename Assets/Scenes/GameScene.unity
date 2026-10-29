@@ -430,7 +430,7 @@ MonoBehaviour:
   m_StreamingVersion: 20241001
   m_LegacyPriority: 0
   Target:
-    TrackingTarget: {fileID: 1943052116}
+    TrackingTarget: {fileID: 0}
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
@@ -1261,11 +1261,11 @@ PolygonCollider2D:
   m_AutoTiling: 0
   m_Points:
     m_Paths:
-    - - {x: 0.86471516, y: 9.972934}
-      - {x: -3.4416027, y: 9.995621}
-      - {x: -3.458463, y: -8.706919}
-      - {x: 4.459361, y: -8.738167}
-      - {x: 4.3182807, y: 9.940995}
+    - - {x: 15, y: 12}
+      - {x: -15, y: 12}
+      - {x: -15, y: -12}
+      - {x: 15, y: -12}
+      - {x: 15, y: 12}
   m_UseDelaunayMesh: 1
 --- !u!4 &808095261
 Transform:
@@ -2844,7 +2844,8 @@ MonoBehaviour:
   velocidadSprint: 1.5
   prefabBala: {fileID: 6187966612849661616, guid: 175692f7dd1028f4dbc9a7032d5919f4, type: 3}
   puntoDisparo: {fileID: 0}
-  vida: 100
+  vida: 5
+  vidaMaxima: 5
   monedas: 0
   sonidoRecibirDano: {fileID: 8300000, guid: 63ad07b4cfca149a38935fae16be7fa4, type: 3}
 --- !u!82 &1943052120
