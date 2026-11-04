@@ -11,11 +11,41 @@ public class PlayerController : MonoBehaviour
     [Header("Disparo")]
     public GameObject prefabBala;
     public Transform puntoDisparo;
+    [SerializeField] private float intervaloDisparo = 0.6f;
+
+    public float IntervaloDisparo
+    {
+        get => intervaloDisparo;
+        set => intervaloDisparo = Mathf.Max(0.01f, value);
+    }
 
     [Header("Atributos")]
-    public int vida = 5;
-    public int vidaMaxima = 5;
-    public int monedas = 0;
+    [SerializeField] private int vida = 5;
+    [SerializeField] private int vidaMaxima = 5;
+    [SerializeField] private int monedas = 0;
+
+    public int Vida
+    {
+        get => vida;
+        set => vida = Mathf.Clamp(value, 0, VidaMaxima);
+    }
+
+    public int VidaMaxima
+    {
+        get => vidaMaxima;
+        set => vidaMaxima = Mathf.Max(1, value);
+    }
+
+    public int Monedas
+    {
+        get => monedas;
+        set => monedas = Mathf.Max(0, value);
+    }
+
+    [Header("Mejora por moneda")]
+    [SerializeField] private float factorMejoraMoneda = 0.85f;
+    [SerializeField] private float intervaloMinimo = 0.25f;
+    [SerializeField] private int puntosPorMoneda = 50;
 
     [Header("Sonido de daño")]
     [SerializeField] private AudioClip sonidoRecibirDano;
@@ -25,14 +55,20 @@ public class PlayerController : MonoBehaviour
     private AudioSource audioDisparo;
     private Vector2 movimiento;
     private Camera camara;
+    private float proximoDisparo;
+    private float intervaloEfectivo;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         audioDisparo = GetComponent<AudioSource>();
         camara = Camera.main;
-        vidaMaxima = Mathf.Max(1, vidaMaxima);
-        vida = Mathf.Clamp(vida, 0, vidaMaxima);
+        VidaMaxima = Mathf.Max(1, vidaMaxima);
+        Vida = Mathf.Clamp(vida, 0, VidaMaxima);
+        intervaloEfectivo = IntervaloDisparo > 0.01f ? IntervaloDisparo : 0.6f;
+        if (factorMejoraMoneda <= 0f || factorMejoraMoneda >= 1f) factorMejoraMoneda = 0.85f;
+        if (intervaloMinimo <= 0f) intervaloMinimo = 0.25f;
+        Debug.Log($"[PlayerController] intervaloDisparo={intervaloDisparo} -> efectivo={intervaloEfectivo}");
     }
 
     void Update()
@@ -63,9 +99,10 @@ public class PlayerController : MonoBehaviour
         movimiento = new Vector2(moveX, moveY).normalized;
 
         // Disparo (Espacio)
-        if (keyboard.spaceKey.wasPressedThisFrame)
+        if (keyboard.spaceKey.wasPressedThisFrame && Time.time >= proximoDisparo)
         {
             Disparar();
+            proximoDisparo = Time.time + intervaloEfectivo;
         }
     }
 
@@ -113,14 +150,9 @@ public class PlayerController : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.CompareTag("Pickup"))
-        {
-            RecolectarMoneda(collision.gameObject);
-        }
-
         if (collision.CompareTag("Portal"))
         {
-            CambiarDeNivel("Nivel2");
+            GestorNiveles.AvanzarNivel();
         }
 
         if (collision.gameObject.name.StartsWith("EnemyLaser") &&
@@ -134,8 +166,12 @@ public class PlayerController : MonoBehaviour
     // Reduce la vida y reproduce el sonido de impacto
     private void AplicarDano(int cantidad)
     {
-        vida = Mathf.Max(0, vida - cantidad);
+        Vida = Mathf.Max(0, Vida - cantidad);
         BarraVida.RefrescarBarra();
+        if (Vida <= 0)
+        {
+            Destroy(gameObject);
+        }
 
         if (sonidoRecibirDano != null && ControlEfectos.Activados)
         {
@@ -143,11 +179,15 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    // Funciones auxiliares para delegar responsabilidades de colisión
-    private void RecolectarMoneda(GameObject monedaObj)
+    // La moneda llama a este método al tocar la nave
+    public void RecogerMoneda()
     {
-        monedas++;
-        monedaObj.SetActive(false);
+        Monedas++;
+        intervaloEfectivo = Mathf.Max(intervaloMinimo, intervaloEfectivo * factorMejoraMoneda);
+        IntervaloDisparo = intervaloEfectivo;
+        ScoreManager.Sumar(Mathf.Max(0, puntosPorMoneda));
+        ScoreManager.ActualizarMonedas(Monedas);
+        Debug.Log($"[PlayerController] moneda recogida ({Monedas}) +{puntosPorMoneda} pts -> intervaloDisparo={IntervaloDisparo:0.00}");
     }
 
     private void CambiarDeNivel(string nombreEscena)

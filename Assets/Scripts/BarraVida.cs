@@ -74,8 +74,8 @@ public class BarraVida : MonoBehaviour
             if (jugador == null) return;
         }
 
-        int maximo = Mathf.Max(1, jugador.vidaMaxima);
-        int vida = Mathf.Clamp(jugador.vida, 0, maximo);
+        int maximo = Mathf.Max(1, jugador.VidaMaxima);
+        int vida = Mathf.Clamp(jugador.Vida, 0, maximo);
 
         if (!forzar && vida == vidaAnterior) return;
         vidaAnterior = vida;

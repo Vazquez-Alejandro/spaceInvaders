@@ -12,16 +12,22 @@ public class MovimientoInvasores : MonoBehaviour
     public float intervaloMaximo = 0.9f;
     public float intervaloMinimo = 0.1f;
 
-    private const float MARGEN_LATERAL = 1f;
+    private const float MARGEN_LATERAL = 0.3f;
     private const float EPSILON_LIMITE = 0.001f;
 
     private readonly List<Transform> enemigos = new List<Transform>();
+    private readonly Dictionary<Transform, int> filaDe = new Dictionary<Transform, int>();
+    private readonly Dictionary<int, int> direccionFila = new Dictionary<int, int>();
+
     private int totalInicial;
     private float temporizador;
     private int direccion = 1;
     private float limiteIzquierdo;
     private float limiteDerecho;
     private float pasoActual;
+    private bool movimientoAlternado;
+    private bool nivelCompletado;
+    private bool formacionAjustada;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Inicializar()
@@ -55,6 +61,9 @@ public class MovimientoInvasores : MonoBehaviour
     private void Recoger()
     {
         enemigos.Clear();
+        filaDe.Clear();
+        direccionFila.Clear();
+
         foreach (Transform t in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             if (t.name.StartsWith("Invasor") && t.GetComponent<SpriteRenderer>() != null)
@@ -62,9 +71,37 @@ public class MovimientoInvasores : MonoBehaviour
                 enemigos.Add(t);
             }
         }
+
         totalInicial = Mathf.Max(1, enemigos.Count);
         temporizador = intervaloMaximo;
-        AjustarFormacion();
+        direccion = 1;
+        nivelCompletado = false;
+
+        movimientoAlternado = false;
+        formacionAjustada = false;
+
+        if (movimientoAlternado)
+        {
+            var ordenados = enemigos.OrderByDescending(e => e.position.y).ToList();
+            int filaActual = -1;
+            float yActual = float.NaN;
+            foreach (Transform e in ordenados)
+            {
+                if (float.IsNaN(yActual) || Mathf.Abs(e.position.y - yActual) > 0.5f)
+                {
+                    filaActual++;
+                    yActual = e.position.y;
+                }
+                filaDe[e] = filaActual;
+            }
+
+            int numeroFilas = filaActual + 1;
+            for (int i = 0; i < numeroFilas; i++)
+            {
+                direccionFila[i] = (i % 2 == 0) ? 1 : -1;
+            }
+        }
+
     }
 
     private void AjustarFormacion()
@@ -128,9 +165,23 @@ public class MovimientoInvasores : MonoBehaviour
 
     private void Update()
     {
-        if (enemigos.Count == 0) { Recoger(); return; }
-
         enemigos.RemoveAll(e => e == null);
+
+        if (enemigos.Count == 0)
+        {
+            if (totalInicial > 1 && !nivelCompletado)
+            {
+                nivelCompletado = true;
+                StartCoroutine(AvanzarNivel());
+            }
+            return;
+        }
+
+        if (!formacionAjustada)
+        {
+            AjustarFormacion();
+            formacionAjustada = true;
+        }
 
         List<Transform> vivos = enemigos.FindAll(e => e.gameObject.activeInHierarchy);
         if (vivos.Count == 0) return;
@@ -141,31 +192,86 @@ public class MovimientoInvasores : MonoBehaviour
         temporizador = CalcularIntervalo(vivos.Count);
         float intervalo = temporizador;
 
-        float minX = vivos.Min(e => e.position.x);
-        float maxX = vivos.Max(e => e.position.x);
+        ActualizarLimites();
 
-        bool tocaLimite = (direccion > 0 && maxX + pasoActual > limiteDerecho + EPSILON_LIMITE) ||
-                          (direccion < 0 && minX - pasoActual < limiteIzquierdo - EPSILON_LIMITE);
-
-        if (tocaLimite)
+        if (movimientoAlternado)
         {
+            var filas = new Dictionary<int, List<Transform>>();
             foreach (Transform e in vivos)
             {
-                Vector3 p = e.position;
-                p.y -= pasoVertical;
-                e.position = p;
+                int f = filaDe.ContainsKey(e) ? filaDe[e] : 0;
+                if (!filas.ContainsKey(f)) filas[f] = new List<Transform>();
+                filas[f].Add(e);
             }
-            direccion = -direccion;
+
+            foreach (var kv in filas)
+            {
+                int f = kv.Key;
+                List<Transform> miembros = kv.Value;
+                if (miembros.Count == 0) continue;
+
+                int dir = direccionFila.ContainsKey(f) ? direccionFila[f] : 1;
+                float minX = miembros.Min(e => ObtenerBordeIzquierdo(e));
+                float maxX = miembros.Max(e => ObtenerBordeDerecho(e));
+
+                bool tocaLimite = (dir > 0 && maxX + pasoActual > limiteDerecho + EPSILON_LIMITE) ||
+                                  (dir < 0 && minX - pasoActual < limiteIzquierdo - EPSILON_LIMITE);
+
+                if (tocaLimite)
+                {
+                    float desplazamientoX = (dir > 0) ? (limiteDerecho - maxX) : (limiteIzquierdo - minX);
+                    foreach (Transform e in miembros)
+                    {
+                        Vector3 p = e.position;
+                        p.x += desplazamientoX;
+                        p.y -= pasoVertical;
+                        e.position = p;
+                    }
+                    direccionFila[f] = -dir;
+                }
+                else
+                {
+                    foreach (Transform e in miembros)
+                    {
+                        Vector3 p = e.position;
+                        p.x += pasoActual * dir;
+                        e.position = p;
+                    }
+                }
+            }
+
+            AnimarPaso(vivos, intervalo);
         }
         else
         {
-            foreach (Transform e in vivos)
+            float minX = vivos.Min(e => ObtenerBordeIzquierdo(e));
+            float maxX = vivos.Max(e => ObtenerBordeDerecho(e));
+
+            bool tocaLimite = (direccion > 0 && maxX + pasoActual > limiteDerecho + EPSILON_LIMITE) ||
+                              (direccion < 0 && minX - pasoActual < limiteIzquierdo - EPSILON_LIMITE);
+
+            if (tocaLimite)
             {
-                Vector3 p = e.position;
-                p.x += pasoActual * direccion;
-                e.position = p;
+                float desplazamientoX = (direccion > 0) ? (limiteDerecho - maxX) : (limiteIzquierdo - minX);
+                foreach (Transform e in vivos)
+                {
+                    Vector3 p = e.position;
+                    p.x += desplazamientoX;
+                    p.y -= pasoVertical;
+                    e.position = p;
+                }
+                direccion = -direccion;
             }
-            AnimarPaso(vivos, intervalo);
+            else
+            {
+                foreach (Transform e in vivos)
+                {
+                    Vector3 p = e.position;
+                    p.x += pasoActual * direccion;
+                    e.position = p;
+                }
+                AnimarPaso(vivos, intervalo);
+            }
         }
     }
 
@@ -191,6 +297,56 @@ public class MovimientoInvasores : MonoBehaviour
                 anim.Play(estado.fullPathHash, 0, 0f);
             }
         }
+    }
+
+    private System.Collections.IEnumerator AvanzarNivel()
+    {
+        yield return new WaitForSeconds(1.5f);
+        if (GestorNiveles.NivelActual >= 2)
+        {
+            CreditosUI.MostrarAlIniciar = true;
+            SceneManager.LoadScene("MainMenu");
+        }
+        else
+        {
+            GestorNiveles.AvanzarNivel();
+        }
+    }
+
+    private float ObtenerBordeIzquierdo(Transform e)
+    {
+        if (e == null) return 0f;
+        SpriteRenderer sr = e.GetComponent<SpriteRenderer>();
+        if (sr == null || sr.sprite == null) return e.position.x - 0.5f;
+        Bounds b = sr.bounds;
+        if (b.size.x < 0.0001f) return e.position.x - 0.5f;
+        return b.min.x;
+    }
+
+    private float ObtenerBordeDerecho(Transform e)
+    {
+        if (e == null) return 0f;
+        SpriteRenderer sr = e.GetComponent<SpriteRenderer>();
+        if (sr == null || sr.sprite == null) return e.position.x + 0.5f;
+        Bounds b = sr.bounds;
+        if (b.size.x < 0.0001f) return e.position.x + 0.5f;
+        return b.max.x;
+    }
+
+    private float ObtenerMitadAncho(Transform e)
+    {
+        return (ObtenerBordeDerecho(e) - ObtenerBordeIzquierdo(e)) * 0.5f;
+    }
+
+    private void ActualizarLimites()
+    {
+        Camera cam = Camera.main;
+        if (cam == null) return;
+        float halfWidth = cam.orthographicSize * cam.aspect;
+        float centroX = cam.transform.position.x;
+        float limite = Mathf.Max(1f, halfWidth - MARGEN_LATERAL);
+        limiteIzquierdo = centroX - limite;
+        limiteDerecho = centroX + limite;
     }
 
     private float CalcularIntervalo(int vivos)

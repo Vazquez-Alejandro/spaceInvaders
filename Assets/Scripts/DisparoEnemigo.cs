@@ -41,6 +41,12 @@ public class DisparoEnemigo : MonoBehaviour
             }
         }
 
+        if (GestorNiveles.NivelActual >= 2)
+        {
+            intervaloMinimo = Mathf.Max(0.6f, intervaloMinimo * 0.75f);
+            intervaloMaximo = Mathf.Max(1.2f, intervaloMaximo * 0.75f);
+        }
+
         temporizador = Random.Range(intervaloMinimo, intervaloMaximo);
     }
 
