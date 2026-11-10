@@ -19,7 +19,6 @@ public class DisparoEnemigo : MonoBehaviour
     [Range(0f, 1f)] public float probabilidadApuntar = 0.5f;
     public float desvioHorizontal = 1.5f;
 
-    private readonly List<Transform> enemigos = new List<Transform>();
     private float temporizador;
     private AudioSource audioDisparo;
 
@@ -31,14 +30,6 @@ public class DisparoEnemigo : MonoBehaviour
         {
             GameObject jugadorObj = GameObject.Find("Player");
             if (jugadorObj != null) jugador = jugadorObj.transform;
-        }
-
-        foreach (Transform t in FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-        {
-            if (t.name.StartsWith("Invasor") && t.GetComponent<SpriteRenderer>() != null)
-            {
-                enemigos.Add(t);
-            }
         }
 
         if (GestorNiveles.NivelActual >= 2)
@@ -94,9 +85,15 @@ public class DisparoEnemigo : MonoBehaviour
 
     private Transform ElegirEnemigo()
     {
-        enemigos.RemoveAll(e => e == null);
+        List<Transform> vivos = new List<Transform>();
+        foreach (Transform t in FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        {
+            if (t.name.StartsWith("Invasor") && t.GetComponent<SpriteRenderer>() != null)
+            {
+                vivos.Add(t);
+            }
+        }
 
-        List<Transform> vivos = enemigos.FindAll(e => e.gameObject.activeInHierarchy);
         if (vivos.Count == 0) return null;
 
         return vivos[Random.Range(0, vivos.Count)];

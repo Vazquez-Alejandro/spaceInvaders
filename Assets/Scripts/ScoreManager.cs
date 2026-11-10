@@ -28,13 +28,21 @@ public class ScoreManager : MonoBehaviour
     {
         SceneManager.sceneLoaded -= AlCargarEscena;
         SceneManager.sceneLoaded += AlCargarEscena;
+        AlCargarEscena(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
     private static void AlCargarEscena(Scene escena, LoadSceneMode modo)
     {
         if (escena.name == "GameScene")
         {
-            Score = 0;
+            // Reiniciar solo al empezar una partida nueva. Al pasar de nivel
+            // (NivelActual ya avanzó) el puntaje y las monedas se acumulan.
+            if (GestorNiveles.NivelActual == GestorNiveles.NivelInicial)
+            {
+                Score = 0;
+                ActualizarMonedas(0);
+            }
+
             if (instancia == null)
             {
                 GameObject go = new GameObject("ScoreManager");
@@ -43,7 +51,7 @@ public class ScoreManager : MonoBehaviour
             }
             instancia.CrearUI();
             instancia.Actualizar();
-            ActualizarMonedas(0);
+            ActualizarMonedas(Monedas); // refresca el texto con el valor acumulado
         }
         else
         {

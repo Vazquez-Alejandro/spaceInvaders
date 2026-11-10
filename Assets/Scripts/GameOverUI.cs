@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -11,6 +12,7 @@ public class GameOverUI : MonoBehaviour
     private Text textoPuntaje;
     private Text textoMonedas;
     private Text textoMensaje;
+    private Text textoTitulo;
     private InputField inputNombre;
     private Button botonGuardar;
 
@@ -19,6 +21,7 @@ public class GameOverUI : MonoBehaviour
     {
         SceneManager.sceneLoaded -= AlCargarEscena;
         SceneManager.sceneLoaded += AlCargarEscena;
+        AlCargarEscena(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
     private static void AlCargarEscena(Scene escena, LoadSceneMode modo)
@@ -57,7 +60,7 @@ public class GameOverUI : MonoBehaviour
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
 
-        CrearTexto(panel.transform, "GAME OVER", 52, new Vector2(0, 230), Color.red);
+        textoTitulo = CrearTexto(panel.transform, "GAME OVER", 52, new Vector2(0, 230), Color.red);
         textoPuntaje = CrearTexto(panel.transform, "PUNTAJE: 0", 30, new Vector2(0, 160), new Color(0.196f, 1f, 0.196f, 1f));
         textoMonedas = CrearTexto(panel.transform, "MONEDAS: 0", 26, new Vector2(0, 115), new Color(0.196f, 1f, 0.196f, 1f));
         CrearTexto(panel.transform, "INGRESA TU NOMBRE:", 22, new Vector2(0, 60), new Color(0.196f, 1f, 0.196f, 1f));
@@ -168,16 +171,44 @@ public class GameOverUI : MonoBehaviour
 
     public static void Mostrar()
     {
-        if (instancia == null) return;
+        MostrarInterno("GAME OVER", Color.red);
+    }
+
+    // Victoria: mismas iniciales pero con otro título.
+    public static void MostrarVictoria()
+    {
+        MostrarInterno("¡GANASTE!", new Color(0.196f, 1f, 0.196f, 1f));
+    }
+
+    private static void MostrarInterno(string titulo, Color colorTitulo)
+    {
+        if (instancia == null)
+        {
+            GameObject go = new GameObject("GameOverUI");
+            instancia = go.AddComponent<GameOverUI>();
+            DontDestroyOnLoad(go);
+            instancia.CrearUI();
+        }
         if (instancia.panel == null) instancia.CrearUI();
+
         instancia.activo = true;
         Time.timeScale = 0f;
-        instancia.ActualizarDatos();
+
+        if (instancia.textoTitulo != null)
+        {
+            instancia.textoTitulo.text = titulo;
+            instancia.textoTitulo.color = colorTitulo;
+        }
+
+        // Activar el panel ANTES de actualizar los datos: si algo falla al
+        // enfocar el input, el panel igual queda visible.
         if (instancia.panel != null)
         {
             instancia.panel.transform.SetAsLastSibling();
             instancia.panel.SetActive(true);
         }
+
+        instancia.ActualizarDatos();
     }
 
     private void ActualizarDatos()
@@ -192,8 +223,11 @@ public class GameOverUI : MonoBehaviour
         {
             inputNombre.interactable = true;
             inputNombre.text = "";
-            inputNombre.Select();
-            inputNombre.ActivateInputField();
+            if (EventSystem.current != null)
+            {
+                inputNombre.Select();
+                inputNombre.ActivateInputField();
+            }
         }
         if (botonGuardar != null) botonGuardar.interactable = true;
     }

@@ -14,6 +14,7 @@ public class RankingUI : MonoBehaviour
     {
         SceneManager.sceneLoaded -= AlCargarEscena;
         SceneManager.sceneLoaded += AlCargarEscena;
+        AlCargarEscena(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
     private static void AlCargarEscena(Scene escena, LoadSceneMode modo)

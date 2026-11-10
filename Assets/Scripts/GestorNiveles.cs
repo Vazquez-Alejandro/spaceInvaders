@@ -3,23 +3,30 @@ using UnityEngine.SceneManagement;
 
 public static class GestorNiveles
 {
-    public static int NivelActual = 1;
+    // Pruebas: true = arranca directo en el nivel 2 (modo nave nodriza). false = juego normal.
+    public static bool EmpezarEnNivel2 = false;
+    public static int NivelInicial => EmpezarEnNivel2 ? 2 : 1;
+    public static int NivelActual = NivelInicial;
+
+    // Último nivel visible. El nivel 3 queda oculto por ahora.
+    public const int NivelMaximo = 2;
 
     public static void AvanzarNivel()
     {
+        if (NivelActual >= NivelMaximo) return;
         NivelActual++;
         SceneManager.LoadScene("GameScene");
     }
 
     public static void Reiniciar()
     {
-        NivelActual = 1;
+        NivelActual = NivelInicial;
         SceneManager.LoadScene("GameScene");
     }
 
     public static void VolverMenu()
     {
-        NivelActual = 1;
+        NivelActual = NivelInicial;
         SceneManager.LoadScene("MainMenu");
     }
 }

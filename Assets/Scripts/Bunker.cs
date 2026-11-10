@@ -1,131 +1,114 @@
 using UnityEngine;
 
+// Bunker con frames de daño del sprite sheet (4 estados y destrucción total).
 public class Bunker : MonoBehaviour
 {
-    private Texture2D tex;
+    private static readonly string[] RUTAS =
+    {
+        "Bunkers/Bunker0",
+        "Bunkers/Bunker1",
+        "Bunkers/Bunker2",
+        "Bunkers/Bunker3"
+    };
+
+    // Altura visible de cada frame (sobre 12 px del recorte) para ajustar el colisionador.
+    private static readonly float[] ALTURAS_LOCALES = { 0.12f, 0.12f, 0.08f, 0.04f };
+
     private SpriteRenderer sr;
-    private Sprite spriteBase;
-    private int totalOpacos;
-    private const int RADIO = 4;
+    private Sprite[] frames;
+    private int dano;
 
     private void Start()
     {
         sr = GetComponent<SpriteRenderer>();
-        BoxCollider2D col = GetComponent<BoxCollider2D>();
-        Sprite src = Resources.Load<Sprite>("Bunkers/Bunker");
-        if (src == null || src.texture == null)
+
+        frames = new Sprite[RUTAS.Length];
+        for (int i = 0; i < RUTAS.Length; i++)
         {
-            Debug.LogWarning("Bunker: sprite no encontrado");
-            return;
+            Sprite src = Resources.Load<Sprite>(RUTAS[i]);
+            if (src == null || src.texture == null)
+            {
+                Debug.LogWarning("Bunker: sprite no encontrado " + RUTAS[i]);
+                continue;
+            }
+            frames[i] = CrearSprite(src);
         }
 
-        Color[] srcPixels = src.texture.GetPixels();
-        tex = new Texture2D(src.texture.width, src.texture.height, TextureFormat.RGBA32, false);
+        dano = 0;
+        AplicarFrame();
+    }
+
+    // Replica el enfoque que ya funcionaba: textura RGBA32 en tiempo de ejecución
+    // con el color sólido del bunker, en vez del sprite importado.
+    private static Sprite CrearSprite(Sprite src)
+    {
+        Color[] px = src.texture.GetPixels();
         Color verde = new Color(0.3f, 0.8f, 0.2f, 1f);
-        Color[] nuevos = new Color[srcPixels.Length];
-        for (int i = 0; i < srcPixels.Length; i++)
-        {
-            nuevos[i] = (srcPixels[i].a > 0.1f) ? verde : Color.clear;
-        }
+        Color[] nuevos = new Color[px.Length];
+        for (int i = 0; i < px.Length; i++)
+            nuevos[i] = (px[i].a > 0.1f) ? verde : Color.clear;
+
+        Texture2D tex = new Texture2D(src.texture.width, src.texture.height, TextureFormat.RGBA32, false);
         tex.SetPixels(nuevos);
         tex.Apply();
 
-        spriteBase = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), src.pixelsPerUnit);
-        sr.sprite = spriteBase;
-
-        totalOpacos = ContarOpacos();
+        return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), src.pixelsPerUnit);
     }
 
     private void Update()
     {
-        if (tex == null) return;
-        // Poll for overlapping lasers (trigger detection misses fast-moving lasers)
+        if (frames == null) return;
+
         BoxCollider2D col = GetComponent<BoxCollider2D>();
         if (col == null) return;
+
         Collider2D[] hits = Physics2D.OverlapBoxAll(transform.position, col.size * transform.lossyScale, 0f);
         foreach (Collider2D c in hits)
         {
-            if (c == null) continue;
-            if (c.gameObject == gameObject) continue;
-            Laser laser = c.GetComponent<Laser>();
-            LaserEnemigo laserEnemigo = c.GetComponent<LaserEnemigo>();
-            if (laser == null && laserEnemigo == null) continue;
-            // erode
-            if (laser != null) { Destroy(laser.gameObject); }
-            else if (laserEnemigo != null) { Destroy(laserEnemigo.gameObject); }
-            Vector3 local = transform.InverseTransformPoint(c.transform.position);
-            float ppu = (spriteBase != null) ? spriteBase.pixelsPerUnit : 100f;
-            int px = Mathf.Clamp(Mathf.RoundToInt(local.x * ppu + tex.width * 0.5f), 0, tex.width - 1);
-            int py = Mathf.Clamp(Mathf.RoundToInt(local.y * ppu + tex.height * 0.5f), 0, tex.height - 1);
-            Borrar(px, py, RADIO);
-            tex.Apply();
-            int restantes = ContarOpacos();
-            if (totalOpacos > 0 && restantes < totalOpacos * 0.12f)
-            {
-                Destroy(gameObject);
-                return;
-            }
+            if (c == null || c.gameObject == gameObject) continue;
+
+            bool esLaser = c.GetComponent<Laser>() != null || c.GetComponent<LaserEnemigo>() != null;
+            if (!esLaser) continue;
+
+            Destroy(c.gameObject);
+            if (!Danar()) return;
         }
     }
 
-    private void OnTriggerEnter2D(Collider2D other)
+    // Avanza un nivel de daño. Devuelve false si el bunker quedó destruido.
+    private bool Danar()
     {
-        if (other == null) return;
-        bool esLaser = other.GetComponent<Laser>() != null || other.GetComponent<LaserEnemigo>() != null;
-        if (!esLaser) return;
-
-        Vector3 _local = transform.InverseTransformPoint(other.transform.position);
-
-        Destroy(other.gameObject);
-
-        Vector3 local = transform.InverseTransformPoint(other.transform.position);
-        float ppu = (spriteBase != null) ? spriteBase.pixelsPerUnit : 100f;
-        int px = Mathf.Clamp(Mathf.RoundToInt(local.x * ppu + tex.width * 0.5f), 0, tex.width - 1);
-        // Determine entry side based on laser velocity direction
-        Vector2 vel = Vector2.zero;
-        Laser l = other.GetComponent<Laser>();
-        LaserEnemigo le = other.GetComponent<LaserEnemigo>();
-        if (l != null) vel = Vector2.up; // player laser moves up -> enters from bottom
-        else if (le != null) vel = le.direccion; // enemy laser moves in its direction
-        int py;
-        if (vel.y > 0) py = 0; // moving up -> hit bottom
-        else if (vel.y < 0) py = tex.height - 1; // moving down -> hit top
-        else py = Mathf.Clamp(Mathf.RoundToInt(local.y * ppu + tex.height * 0.5f), 0, tex.height - 1);
-
-        Borrar(px, py, RADIO);
-        tex.Apply();
-
-        int restantes = ContarOpacos();
-        if (totalOpacos > 0 && restantes < totalOpacos * 0.12f)
+        dano++;
+        if (dano >= frames.Length)
         {
             Destroy(gameObject);
+            return false;
         }
+
+        AplicarFrame();
+        return true;
     }
 
-    private void Borrar(int cx, int cy, int r)
+    private void AplicarFrame()
     {
-        for (int y = cy - r; y <= cy + r; y++)
-        {
-            for (int x = cx - r; x <= cx + r; x++)
-            {
-                if (x < 0 || y < 0 || x >= tex.width || y >= tex.height) continue;
-                int dx = x - cx;
-                int dy = y - cy;
-                if (dx * dx + dy * dy <= r * r)
-                {
-                    tex.SetPixel(x, y, Color.clear);
-                }
-            }
-        }
-    }
+        if (frames == null || dano < 0 || dano >= frames.Length) return;
 
-    private int ContarOpacos()
-    {
-        int c = 0;
-        foreach (Color p in tex.GetPixels())
+        Sprite f = frames[dano];
+        if (f == null) return;
+
+        if (sr != null)
         {
-            if (p.a > 0.01f) c++;
+            sr.color = Color.white;
+            sr.sprite = f;
         }
-        return c;
+
+        BoxCollider2D col = GetComponent<BoxCollider2D>();
+        if (col != null)
+        {
+            float h = (dano < ALTURAS_LOCALES.Length) ? ALTURAS_LOCALES[dano] : 0.12f;
+            // recorte 26x12 con pivot centrado: el contenido va pegado al fondo (y = -0.06)
+            col.size = new Vector2(0.26f, h);
+            col.offset = new Vector2(0f, -0.06f + h * 0.5f);
+        }
     }
 }

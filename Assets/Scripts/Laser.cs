@@ -5,10 +5,10 @@ public class Laser : Proyectil
     public float topLimit = 7f;
 
     public AudioClip sonidoImpacto;
-    [Range(0f, 1f)] public float volumenImpacto = 0.8f;
+    [Range(0f, 1f)] public float volumenImpacto = 0.9f;
 
     [Header("Monedas")]
-    [Range(0f, 1f)] public float probabilidadMoneda = 0.12f;
+    [Range(0f, 1f)] public float probabilidadMoneda = 0.3f;
 
     private bool destruido = false;
 
@@ -36,24 +36,50 @@ public class Laser : Proyectil
     private void ComprobarSolapamiento()
     {
         if (destruido) return;
+        Physics2D.SyncTransforms();
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, 0.6f);
+
+        foreach (Collider2D c in hits)
+        {
+            if (c == null) continue;
+            NaveNodriza nave = c.GetComponent<NaveNodriza>();
+            if (nave != null && nave.Activa)
+            {
+                destruido = true;
+                CrearExplosion(transform.position, 0.5f, new Color(0.9f, 0.9f, 0.9f, 1f));
+                nave.RecibirDano(1);
+                Destroy(gameObject);
+                return;
+            }
+        }
+
+        Collider2D objetivo = null;
+        float mejorDist = float.MaxValue;
         foreach (Collider2D c in hits)
         {
             if (c == null) continue;
             if (!c.gameObject.name.StartsWith("Invasor")) continue;
             if (c.GetComponent<SpriteRenderer>() == null) continue;
 
-            destruido = true;
-            if (sonidoImpacto != null && ControlEfectos.Activados)
+            float dist = ((Vector2)c.transform.position - (Vector2)transform.position).sqrMagnitude;
+            if (dist < mejorDist)
             {
-                AudioSource.PlayClipAtPoint(sonidoImpacto, transform.position, volumenImpacto);
+                mejorDist = dist;
+                objetivo = c;
             }
-            ScoreManager.Sumar(10);
-            SoltarMoneda(c.transform.position);
-            Destroy(c.gameObject);
-            Destroy(gameObject);
-            return;
         }
+        if (objetivo == null) return;
+
+        destruido = true;
+        if (sonidoImpacto != null && ControlEfectos.Activados)
+        {
+            AudioSource.PlayClipAtPoint(sonidoImpacto, transform.position, volumenImpacto);
+        }
+        SpawnExplosion(objetivo);
+        ScoreManager.Sumar(10);
+        SoltarMoneda(objetivo.transform.position);
+        Destroy(objetivo.gameObject);
+        Destroy(gameObject);
     }
 
     private void OnTriggerEnter2D(Collider2D colision)
@@ -70,6 +96,17 @@ public class Laser : Proyectil
     {
         if (destruido) return;
         if (colision == null) return;
+
+        NaveNodriza nave = colision.GetComponent<NaveNodriza>();
+        if (nave != null && nave.Activa)
+        {
+            destruido = true;
+            CrearExplosion(transform.position, 0.5f, new Color(0.9f, 0.9f, 0.9f, 1f));
+            nave.RecibirDano(1);
+            Destroy(gameObject);
+            return;
+        }
+
         if (!colision.gameObject.name.StartsWith("Invasor")) return;
         if (colision.GetComponent<SpriteRenderer>() == null) return;
 
@@ -78,10 +115,43 @@ public class Laser : Proyectil
         {
             AudioSource.PlayClipAtPoint(sonidoImpacto, transform.position, volumenImpacto);
         }
+        SpawnExplosion(colision);
         ScoreManager.Sumar(10);
         SoltarMoneda(colision.transform.position);
         Destroy(colision.gameObject);
         Destroy(gameObject);
+    }
+
+
+    private static readonly Color ColorExplosion = new Color(0.78f, 0.78f, 0.78f, 1f);
+
+    private void SpawnExplosion(Collider2D colision)
+    {
+        SpriteRenderer enemySr = colision != null ? colision.GetComponent<SpriteRenderer>() : null;
+        float tamano = enemySr != null ? enemySr.bounds.size.x : 0.33f;
+        Vector3 pos = colision != null ? colision.transform.position : transform.position;
+        CrearExplosion(pos, tamano, ColorExplosion);
+    }
+
+    public static void CrearExplosion(Vector3 pos, float tamano, Color color)
+    {
+        GameObject go = new GameObject("Explosion");
+        go.transform.position = pos;
+
+        SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+        Sprite src = Resources.Load<Sprite>("Explosion");
+        float escala = 6f;
+        if (src != null)
+        {
+            sr.sprite = src;
+            float baseW = src.bounds.size.x;
+            if (baseW > 0.0001f) escala = tamano / baseW;
+        }
+        go.transform.localScale = Vector3.one * escala;
+        sr.sortingOrder = 6;
+        sr.color = color;
+
+        Destroy(go, 0.25f);
     }
 
     private void SoltarMoneda(Vector3 posicion)

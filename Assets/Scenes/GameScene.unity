@@ -2321,7 +2321,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DisparoEnemigo
   prefabBala: {fileID: 785445841, guid: 83faac572f564652466de486522c4f8d, type: 3}
   sonidoDisparo: {fileID: 8300000, guid: 53d4cbf2ec631b8bea5bd42020669162, type: 3}
-  volumenDisparo: 0.8
+  volumenDisparo: 1
   intervaloMinimo: 1.5
   intervaloMaximo: 3
   balasMaximas: 3
@@ -2847,7 +2847,7 @@ MonoBehaviour:
   vida: 5
   vidaMaxima: 5
   monedas: 0
-  sonidoRecibirDano: {fileID: 8300000, guid: 63ad07b4cfca149a38935fae16be7fa4, type: 3}
+  sonidoRecibirDano: {fileID: 8300000, guid: d4206582cdef448c8486bdb6c6a560f5, type: 3}
 --- !u!82 &1943052120
 AudioSource:
   m_ObjectHideFlags: 0
